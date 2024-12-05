@@ -1,0 +1,69 @@
+export interface DiscordMessage {
+    messageId: string;
+    content: string;
+    timestamp: Date;
+    tweetUrl: string;
+}
+
+export interface TweetData {
+    id: string;
+    content: string;
+    author: string;
+    url: string;
+    engagement: {
+        likes: number;
+        retweets: number;
+        replies: number;
+    };
+    mediaUrls?: string[];
+    timestamp?: Date;
+}
+
+export interface ImageAnalysis {
+    description: string;
+    memecoinContext: string;
+}
+
+export interface MemecoinAnalysis {
+    identifiedCoins: string[];
+    reasoning: string;
+    confidenceScore: number;
+    patterns: string[];
+    category: string;
+}
+
+export interface PriceVolumeData {
+    price: number;
+    volume24h: number;
+    marketCap: number;
+    timestamp: Date;
+}
+
+export interface VipAccount {
+    id: string;
+    username: string;
+    platform: 'twitter' | 'x';
+    influenceScore: number;
+    memecoinsInfluenced: string[];
+    lastUpdated: Date;
+}
+
+export interface MonitoredTweet {
+    discordMessage: DiscordMessage;
+    tweetData: TweetData;
+    analysis: {
+        imageAnalysis?: ImageAnalysis;
+        memecoinDetection: MemecoinAnalysis;
+        patterns: string[];
+        metrics: Array<{
+            coin: string;
+            metrics: PriceVolumeData | null;
+        }>;
+        existingRelations: any[];
+        vipContext?: VipAccount;
+        historicalContext?: {
+            patternStats: any[];
+        };
+        timestamp: Date;
+    };
+}
