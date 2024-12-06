@@ -51,3 +51,12 @@ export interface MonitoredTweet {
         timestamp: Date;
     };
 }
+
+export interface FollowUpAnalysis {
+    tweetId: string;
+    coins: string[];
+    scheduledTime: Date;
+    completed: boolean;
+    attempts: number;
+    lastAttempted?: Date;
+}

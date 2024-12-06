@@ -22,13 +22,12 @@ export class DiscordMonitor {
     };
     private reconnectAttempts = 0;
     private readonly MAX_RECONNECT_ATTEMPTS = 5;
-    private readonly RECONNECT_DELAY = 5000;
 
-    async connectToExistingBrowser(debugPort: number = 9222): Promise<void> {
+    async connectToExistingBrowser(): Promise<void> {
         try {
             // Connect to existing Chrome instance
             this.browser = await puppeteer.connect({
-                browserURL: `http://localhost:${debugPort}`,
+                browserURL: `http://localhost:${config.discord.debugPort}`,
                 defaultViewport: null
             });
 
@@ -80,13 +79,13 @@ export class DiscordMonitor {
 
         try {
             // Check for login button presence
-            const loginButton = await this.page.$('[class*="loginButton-"]');
+            const loginButton = await this.page.$(config.discord.selectors.loginButton);
             if (loginButton) {
                 throw new Error('Discord not logged in');
             }
 
             // Verify we can access messages
-            const messages = await this.page.$$('.message-2qnXI6');
+            const messages = await this.page.$$(config.discord.selectors.message);
             return messages.length > 0;
 
         } catch (error) {
@@ -110,21 +109,17 @@ export class DiscordMonitor {
             try {
                 if (!this.page) throw new Error('Page not available');
 
-                const messages = await this.page.$$eval('.message-2qnXI6', nodes => nodes.map(n => ({
-                    messageId: n.getAttribute('id') || '',
-                    content: n.querySelector('.markup-2BOw-j')?.textContent || '',
-                    timestamp: new Date().toISOString(),
-                    tweetUrl: Array.from(n.querySelectorAll('a'))
-                        .map(a => a.href)
-                        .find(href => href.includes('twitter.com') || href.includes('x.com')) || ''
-                })));
+                // Attempt with primary selectors
+                let messages = await this.extractMessages();
+                
+                // If no messages found, try alternative selectors
+                if (!messages || messages.length === 0) {
+                    logger.warn('Primary selectors failed, attempting alternatives');
+                    messages = await this.extractMessagesWithAlternatives();
+                }
 
                 for (const message of messages) {
-                    if (
-                        message.messageId !== this.lastMessageId && 
-                        message.tweetUrl && 
-                        (message.tweetUrl.includes('twitter.com') || message.tweetUrl.includes('x.com'))
-                    ) {
+                    if (this.isNewTweetMessage(message)) {
                         this.lastMessageId = message.messageId;
                         this.status.lastMessageTimestamp = new Date();
                         
@@ -144,23 +139,77 @@ export class DiscordMonitor {
                 }
 
             } catch (error) {
-                this.status.errorCount++;
-                this.status.lastError = error.message;
-                logger.error('Error monitoring messages:', error);
-
-                // Attempt reconnection if needed
-                if (this.status.errorCount >= 3) {
-                    await this.attemptReconnection();
-                }
+                this.handleMonitoringError(error);
             }
         };
 
         // Start monitoring loop
-        setInterval(checkMessages, 5000);
+        setInterval(checkMessages, config.discord.retryDelay);
 
         // Add error event listeners
         this.page.on('error', this.handlePageError.bind(this));
         this.page.on('close', this.handlePageClose.bind(this));
+    }
+
+    private async extractMessages(): Promise<Array<any>> {
+        return this.page!.$$eval(config.discord.selectors.message, (nodes, contentSelector) => 
+            nodes.map(n => ({
+                messageId: n.getAttribute('id') || '',
+                content: n.querySelector(contentSelector)?.textContent || '',
+                timestamp: new Date().toISOString(),
+                tweetUrl: Array.from(n.querySelectorAll('a'))
+                    .map(a => a.href)
+                    .find(href => href.includes('twitter.com') || href.includes('x.com')) || ''
+            })), config.discord.selectors.messageContent);
+    }
+
+    private async extractMessagesWithAlternatives(): Promise<Array<any>> {
+        // Try common alternative Discord selectors
+        const alternativeSelectors = [
+            '.chatContent-*, .messageContent-*',
+            '[class*="message-"]',
+            '[class*="messageContent"]'
+        ];
+
+        for (const selector of alternativeSelectors) {
+            try {
+                const messages = await this.page!.$$eval(selector, nodes =>
+                    nodes.map(n => ({
+                        messageId: n.getAttribute('id') || '',
+                        content: n.textContent || '',
+                        timestamp: new Date().toISOString(),
+                        tweetUrl: Array.from(n.querySelectorAll('a'))
+                            .map(a => a.href)
+                            .find(href => href.includes('twitter.com') || href.includes('x.com')) || ''
+                    }))
+                );
+                
+                if (messages.length > 0) {
+                    logger.info(`Found messages using alternative selector: ${selector}`);
+                    return messages;
+                }
+            } catch (error) {
+                continue;
+            }
+        }
+
+        return [];
+    }
+
+    private isNewTweetMessage(message: any): boolean {
+        return message.messageId !== this.lastMessageId && 
+               message.tweetUrl && 
+               (message.tweetUrl.includes('twitter.com') || message.tweetUrl.includes('x.com'));
+    }
+
+    private async handleMonitoringError(error: Error): Promise<void> {
+        this.status.errorCount++;
+        this.status.lastError = error.message;
+        logger.error('Error monitoring messages:', error);
+
+        if (this.status.errorCount >= 3) {
+            await this.attemptReconnection();
+        }
     }
 
     private async attemptReconnection(): Promise<void> {
@@ -177,7 +226,7 @@ export class DiscordMonitor {
             logger.info('Reconnection successful');
         } catch (error) {
             logger.error('Reconnection failed:', error);
-            await new Promise(resolve => setTimeout(resolve, this.RECONNECT_DELAY));
+            await new Promise(resolve => setTimeout(resolve, config.discord.retryDelay));
         }
     }
 

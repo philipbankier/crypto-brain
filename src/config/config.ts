@@ -4,13 +4,21 @@ dotenv.config();
 export const config = {
     discord: {
         channelUrl: process.env.DISCORD_CHANNEL_URL || '',
+        debugPort: parseInt(process.env.CHROME_DEBUG_PORT || '9222'),
+        selectors: {
+            message: process.env.DISCORD_MESSAGE_SELECTOR || '.message-2qnXI6',
+            messageContent: process.env.DISCORD_CONTENT_SELECTOR || '.markup-2BOw-j',
+            loginButton: '[class*="loginButton-"]'
+        },
+        retryDelay: 5000, // 5 seconds between retries
     },
     mongodb: {
         uri: process.env.MONGODB_URI || 'mongodb://localhost:27017',
         dbName: 'memecoinMonitor',
         collections: {
             tweets: 'tweets',
-            vipAccounts: 'vipAccounts'
+            vipAccounts: 'vipAccounts',
+            followUps: 'followUps'  // Add this line
         }
     },
     neo4j: {
@@ -40,6 +48,11 @@ export const config = {
                 volume24h: 100000,  // $100k daily volume
                 marketCap: 1000000  // $1M market cap
             }
+        },
+        followUp: {
+            maxAttempts: 3,
+            checkInterval: 5 * 60 * 1000, // Check every 5 minutes
+            scheduleDuration: 48 * 60 * 60 * 1000 // 48 hours
         }
     },
     scraping: {

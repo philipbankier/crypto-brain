@@ -11,6 +11,7 @@ import { TokenMetricsService } from './token-metrics-service';
 import { GraphService } from './graph-service';
 import { VipTracker } from './vip-tracker';
 import { HistoricalPatternAnalyzer } from './historical-pattern-analyzer';
+import { FollowUpService } from './follow-up-service';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 
@@ -20,22 +21,35 @@ export class MemecoinAnalyzer {
     private graphService: GraphService;
     private vipTracker: VipTracker;
     private historicalAnalyzer: HistoricalPatternAnalyzer;
+    private followUpService: FollowUpService;
     private mongoClient: MongoClient;
 
     constructor() {
+        this.mongoClient = new MongoClient(config.mongodb.uri);
         this.patternMatcher = new HybridPatternMatcher();
         this.tokenMetrics = new TokenMetricsService();
         this.graphService = new GraphService();
         this.vipTracker = new VipTracker();
         this.historicalAnalyzer = new HistoricalPatternAnalyzer();
-        this.mongoClient = new MongoClient(config.mongodb.uri);
+        this.followUpService = new FollowUpService(
+            this.mongoClient,
+            this.vipTracker,
+            this.historicalAnalyzer
+        );
     }
 
     async initialize(): Promise<void> {
-        await this.mongoClient.connect();
-        await this.graphService.initializeSchema();
-        await this.vipTracker.initialize();
-        await this.historicalAnalyzer.initialize();
+        try {
+            await this.mongoClient.connect();
+            await this.graphService.initializeSchema();
+            await this.vipTracker.initialize();
+            await this.historicalAnalyzer.initialize();
+            await this.followUpService.initialize();
+            logger.info('MemecoinAnalyzer initialized successfully');
+        } catch (error) {
+            logger.error('Failed to initialize MemecoinAnalyzer:', error);
+            throw error;
+        }
     }
 
     private async adjustConfidenceByVipStatus(
@@ -137,8 +151,14 @@ export class MemecoinAnalyzer {
             // 8. Store analysis
             await this.storeAnalysis(analysisResult);
 
-            // 9. Schedule follow-up analysis for VIP tracking
-            this.scheduleFollowUpAnalysis(tweet, patternAnalysis.suggestedCoins);
+            // 9. Schedule follow-up analysis if confidence is high enough
+            if (adjustedConfidence >= config.analysis.thresholds.confidence.medium) {
+                await this.followUpService.scheduleFollowUp(
+                    tweet.id,
+                    patternAnalysis.suggestedCoins,
+                    tweet.author
+                );
+            }
 
             // 10. Log high confidence signals
             if (adjustedConfidence >= config.analysis.thresholds.confidence.high) {
@@ -157,32 +177,6 @@ export class MemecoinAnalyzer {
             logger.error('Error in memecoin analysis:', error);
             throw error;
         }
-    }
-
-    private async scheduleFollowUpAnalysis(
-        tweet: TweetData,
-        coins: string[]
-    ): Promise<void> {
-        // Schedule a follow-up analysis after 48 hours
-        setTimeout(async () => {
-            try {
-                for (const coin of coins) {
-                    const priceImpact = await this.historicalAnalyzer.calculatePriceImpact(
-                        coin,
-                        new Date(tweet.timestamp)
-                    );
-
-                    // Update VIP influence score based on price impact
-                    await this.vipTracker.updateInfluenceScore(
-                        tweet.author,
-                        coin,
-                        priceImpact
-                    );
-                }
-            } catch (error) {
-                logger.error('Error in follow-up analysis:', error);
-            }
-        }, 48 * 60 * 60 * 1000); // 48 hours
     }
 
     private async updateGraphRelationships(
@@ -218,19 +212,54 @@ export class MemecoinAnalyzer {
             }
         } catch (error) {
             logger.error('Error updating graph relationships:', error);
+            throw error;
         }
     }
 
     private async storeAnalysis(analysis: MonitoredTweet): Promise<void> {
-        const collection = this.mongoClient
-            .db(config.mongodb.dbName)
-            .collection(config.mongodb.collections.tweets);
+        try {
+            const collection = this.mongoClient
+                .db(config.mongodb.dbName)
+                .collection(config.mongodb.collections.tweets);
 
-        await collection.insertOne(analysis);
+            await collection.insertOne(analysis);
+        } catch (error) {
+            logger.error('Error storing analysis:', error);
+            throw error;
+        }
+    }
+
+    async getAnalysisStatus(tweetId: string): Promise<{
+        analysis: MonitoredTweet | null;
+        followUp: any | null;
+    }> {
+        try {
+            const collection = this.mongoClient
+                .db(config.mongodb.dbName)
+                .collection(config.mongodb.collections.tweets);
+
+            const analysis = await collection.findOne({ 'tweetData.id': tweetId });
+            const followUp = await this.followUpService.getFollowUpStatus(tweetId);
+
+            return {
+                analysis: analysis as MonitoredTweet | null,
+                followUp
+            };
+        } catch (error) {
+            logger.error('Error getting analysis status:', error);
+            throw error;
+        }
     }
 
     async cleanup(): Promise<void> {
-        await this.mongoClient.close();
-        await this.graphService.cleanup();
+        try {
+            await this.followUpService.cleanup();
+            await this.mongoClient.close();
+            await this.graphService.cleanup();
+            logger.info('MemecoinAnalyzer cleaned up successfully');
+        } catch (error) {
+            logger.error('Error during cleanup:', error);
+            throw error;
+        }
     }
 }

@@ -1,4 +1,5 @@
 import { Configuration, OpenAIApi } from 'openai';
+import axios from 'axios';
 import { ImageAnalysis } from '../types';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
@@ -7,6 +8,8 @@ export class ImageAnalyzer {
     private openai: OpenAIApi;
     private cache: Map<string, { analysis: ImageAnalysis, timestamp: number }> = new Map();
     private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+    private lastRequestTime: number = 0;
+    private readonly MIN_REQUEST_GAP = 1000; // 1 second minimum between requests
 
     constructor() {
         const configuration = new Configuration({
@@ -15,13 +18,24 @@ export class ImageAnalyzer {
         this.openai = new OpenAIApi(configuration);
     }
 
-    async analyzeImage(imageUrl: string): Promise<ImageAnalysis> {
+    async analyzeImage(imageUrl: string): Promise<ImageAnalysis | null> {
         try {
             // Check cache first
             const cached = this.cache.get(imageUrl);
             if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+                logger.debug('Returning cached image analysis for:', imageUrl);
                 return cached.analysis;
             }
+
+            // Validate URL before processing
+            const isValid = await this.validateImageUrl(imageUrl);
+            if (!isValid) {
+                logger.warn('Invalid or inaccessible image URL:', imageUrl);
+                return null;
+            }
+
+            // Implement rate limiting
+            await this.enforceRateLimit();
 
             const response = await this.openai.createChatCompletion({
                 model: config.openai.model.vision,
@@ -45,8 +59,12 @@ export class ImageAnalyzer {
                 max_tokens: 300
             });
 
-            const content = response.data.choices[0]?.message?.content || '';
-            
+            const content = response.data.choices[0]?.message?.content;
+            if (!content) {
+                logger.warn('Empty response from OpenAI for image:', imageUrl);
+                return null;
+            }
+
             // Split content into description and memecoin context
             const [description, memecoinContext] = this.parseAnalysisContent(content);
             
@@ -64,9 +82,49 @@ export class ImageAnalyzer {
             return analysis;
 
         } catch (error) {
-            logger.error('Error analyzing image:', error);
-            throw new Error(`Failed to analyze image: ${error.message}`);
+            if (axios.isAxiosError(error) && error.response?.status === 429) {
+                logger.error('Rate limit exceeded for OpenAI API:', error);
+            } else {
+                logger.error('Error analyzing image:', error);
+            }
+            return null;
         }
+    }
+
+    private async validateImageUrl(url: string): Promise<boolean> {
+        try {
+            const response = await axios.head(url);
+            
+            // Check if it's an image
+            const contentType = response.headers['content-type'];
+            if (!contentType?.startsWith('image/')) {
+                return false;
+            }
+
+            // Check file size (if available)
+            const contentLength = response.headers['content-length'];
+            if (contentLength && parseInt(contentLength) > 20 * 1024 * 1024) { // 20MB limit
+                logger.warn('Image too large:', url);
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            logger.error('Error validating image URL:', error);
+            return false;
+        }
+    }
+
+    private async enforceRateLimit(): Promise<void> {
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.lastRequestTime;
+        
+        if (timeSinceLastRequest < this.MIN_REQUEST_GAP) {
+            const delay = this.MIN_REQUEST_GAP - timeSinceLastRequest;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        
+        this.lastRequestTime = Date.now();
     }
 
     private parseAnalysisContent(content: string): [string, string] {
@@ -97,5 +155,6 @@ export class ImageAnalyzer {
 
     clearCache(): void {
         this.cache.clear();
+        logger.info('Image analysis cache cleared');
     }
 }
