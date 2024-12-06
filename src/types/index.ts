@@ -6,7 +6,7 @@ export interface DiscordMessage {
 }
 
 export interface TweetData {
-    id: string;
+    id: string;                  // Standardized to 'id'
     content: string;
     author: string;
     url: string;
@@ -30,22 +30,6 @@ export interface MemecoinAnalysis {
     confidenceScore: number;
     patterns: string[];
     category: string;
-}
-
-export interface PriceVolumeData {
-    price: number;
-    volume24h: number;
-    marketCap: number;
-    timestamp: Date;
-}
-
-export interface VipAccount {
-    id: string;
-    username: string;
-    platform: 'twitter' | 'x';
-    influenceScore: number;
-    memecoinsInfluenced: string[];
-    lastUpdated: Date;
 }
 
 export interface MonitoredTweet {

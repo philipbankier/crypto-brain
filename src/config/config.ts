@@ -9,8 +9,14 @@ export const config = {
         uri: process.env.MONGODB_URI || 'mongodb://localhost:27017',
         dbName: 'memecoinMonitor',
         collections: {
-            tweets: 'tweets'
+            tweets: 'tweets',
+            vipAccounts: 'vipAccounts'
         }
+    },
+    neo4j: {
+        uri: process.env.NEO4J_URI || 'neo4j://localhost:7687',
+        user: process.env.NEO4J_USER || 'neo4j',
+        password: process.env.NEO4J_PASSWORD || 'example'
     },
     openai: {
         apiKey: process.env.OPENAI_API_KEY || '',
@@ -19,51 +25,25 @@ export const config = {
             vision: 'gpt-4-vision-preview'
         }
     },
+    analysis: {
+        thresholds: {
+            confidence: {
+                high: 70,
+                medium: 50,
+                minimum: 30
+            },
+            engagement: {
+                likes: 5000,
+                retweets: 1000
+            },
+            momentum: {
+                volume24h: 100000,  // $100k daily volume
+                marketCap: 1000000  // $1M market cap
+            }
+        }
+    },
     scraping: {
         retryAttempts: 3,
         retryDelay: 1000,
     }
 };
-
-// src/types/index.ts
-export interface DiscordMessage {
-    messageId: string;
-    content: string;
-    timestamp: Date;
-    tweetUrl: string;
-}
-
-export interface TweetData {
-    tweetId: string;
-    author: string;
-    content: string;
-    mediaUrls: string[];
-    engagement: {
-        likes: number;
-        retweets: number;
-        replies: number;
-    };
-    parentTweetId?: string;
-    conversationId?: string;
-}
-
-export interface ImageAnalysis {
-    description: string;
-    memecoinContext: string;
-}
-
-export interface MemecoinAnalysis {
-    identifiedCoins: string[];
-    reasoning: string;
-    confidenceScore: number;
-}
-
-export interface MonitoredTweet {
-    discordMessage: DiscordMessage;
-    tweetData: TweetData;
-    analysis: {
-        imageAnalysis?: ImageAnalysis;
-        memecoinDetection: MemecoinAnalysis;
-        timestamp: Date;
-    };
-}
