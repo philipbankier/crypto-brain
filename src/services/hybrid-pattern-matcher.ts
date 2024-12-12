@@ -30,14 +30,14 @@ Image Context: ${imageAnalysis.memecoinContext}` : ''}
 
 Guidelines for generating memecoin names:
 1. Combine relevant words from the tweet/context (e.g., "TeachYoung" from "teach them young")
-2. Include references to key figures if present (e.g., "MuskPup" from Elon Musk + young kid)
+2. Include references to key figures if present (e.g., "Lil X" from Elon Musk + young son)
 3. Keep names catchy and memorable (2-3 words maximum)
 4. Consider both literal and metaphorical connections
 5. Include relevant suffixes when appropriate (INU, PEPE, AI, etc.)
 
 Example generations:
-Tweet: "Peanut the squirrel was rescued today"
-Names: PEANUT, SQUIRRELRESCUE, NUTPUMP
+Tweet: "Peanut the squirrel was executed today"
+Names: PNUT, PEANUT
 
 Tweet: "Wow, look at these diamond hands!"
 Names: DIAMONDHANDS, HOLDGEMS, DIAMONDAPE

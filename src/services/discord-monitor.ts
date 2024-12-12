@@ -23,11 +23,11 @@ export class DiscordMonitor {
     private reconnectAttempts = 0;
     private readonly MAX_RECONNECT_ATTEMPTS = 5;
 
-    async connectToExistingBrowser(): Promise<void> {
+    async connectToExistingBrowser(debugPort?: number): Promise<void> {
         try {
             // Connect to existing Chrome instance
             this.browser = await puppeteer.connect({
-                browserURL: `http://localhost:${config.discord.debugPort}`,
+                browserURL: `http://localhost:${debugPort || config.discord.debugPort}`,
                 defaultViewport: null
             });
 

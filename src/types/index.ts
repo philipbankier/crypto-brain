@@ -60,3 +60,19 @@ export interface FollowUpAnalysis {
     attempts: number;
     lastAttempted?: Date;
 }
+
+export interface PriceVolumeData {
+    price: number;
+    volume24h: number;
+    marketCap: number;
+    timestamp: Date;
+}
+
+export interface VipAccount {
+    id: string;
+    username: string;
+    platform: 'twitter' | 'x';
+    influenceScore: number;
+    memecoinsInfluenced: string[];
+    lastUpdated: Date;
+}

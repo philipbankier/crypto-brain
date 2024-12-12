@@ -14,7 +14,7 @@ async function startMonitoring() {
         await memecoinAnalyzer.initialize();
         
         // Connect to existing Chrome instance
-        await monitor.connectToExistingBrowser(9222);
+        await monitor.connectToExistingBrowser(config.discord.debugPort);
         logger.info('Successfully connected to Discord');
 
         // Start monitoring messages

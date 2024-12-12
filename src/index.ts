@@ -11,7 +11,7 @@ async function main() {
     try {
         // Initialize services
         await memecoinAnalyzer.initialize();
-        await discordMonitor.initialize();
+        await discordMonitor.connectToExistingBrowser(config.discord.debugPort);
 
         // Start monitoring
         await discordMonitor.monitorMessages(async (discordMessage) => {

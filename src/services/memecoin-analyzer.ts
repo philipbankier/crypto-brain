@@ -60,26 +60,26 @@ export class MemecoinAnalyzer {
         if (!vipInfo) return confidence;
 
         // Adjust confidence based on VIP's influence score
-        const vipBoost = (vipInfo.influenceScore / 100) * 20; // Max 20% boost
+        const vipBoost = (vipInfo.influenceScore / 100) * 90; // Max 90% boost
         return Math.min(100, confidence + vipBoost);
     }
 
-    private async adjustConfidenceByHistoricalSuccess(
-        confidence: number,
-        patterns: string[]
-    ): Promise<number> {
-        let adjustedConfidence = confidence;
+    // private async adjustConfidenceByHistoricalSuccess(
+    //     confidence: number,
+    //     patterns: string[]
+    // ): Promise<number> {
+    //     let adjustedConfidence = confidence;
 
-        for (const pattern of patterns) {
-            const stats = await this.historicalAnalyzer.analyzePatternSuccess(pattern);
+    //     for (const pattern of patterns) {
+    //         const stats = await this.historicalAnalyzer.analyzePatternSuccess(pattern);
             
-            // Adjust confidence based on historical success rate
-            const historicalBoost = stats.successRate * 15; // Max 15% boost
-            adjustedConfidence = Math.min(100, adjustedConfidence + historicalBoost);
-        }
+    //         // Adjust confidence based on historical success rate
+    //         const historicalBoost = stats.successRate * 15; // Max 15% boost
+    //         adjustedConfidence = Math.min(100, adjustedConfidence + historicalBoost);
+    //     }
 
-        return adjustedConfidence;
-    }
+    //     return adjustedConfidence;
+    // }
 
     async analyzeTweetForMemecoins(
         tweet: TweetData,
@@ -95,11 +95,11 @@ export class MemecoinAnalyzer {
                 tweet.author
             );
 
-            // 3. Adjust confidence based on historical pattern success
-            adjustedConfidence = await this.adjustConfidenceByHistoricalSuccess(
-                adjustedConfidence,
-                patternAnalysis.patterns
-            );
+            // 3. Historical success adjustment temporarily removed
+            // adjustedConfidence = await this.adjustConfidenceByHistoricalSuccess(
+            //     adjustedConfidence,
+            //     patternAnalysis.patterns
+            // );
 
             // 4. Check for existing memecoin relationships
             const existingRelations = await this.graphService.getRelatedEvents(
@@ -135,11 +135,7 @@ export class MemecoinAnalyzer {
                     existingRelations: existingRelations,
                     vipContext: await this.vipTracker.getVipInfo(tweet.author),
                     historicalContext: {
-                        patternStats: await Promise.all(
-                            patternAnalysis.patterns.map(p => 
-                                this.historicalAnalyzer.analyzePatternSuccess(p)
-                            )
-                        )
+                        patternStats: []
                     },
                     timestamp: new Date()
                 }

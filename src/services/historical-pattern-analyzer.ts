@@ -90,9 +90,9 @@ export class HistoricalPatternAnalyzer {
             const initialMetrics = await this.tokenMetrics.getTokenMetrics(coinName);
             if (!initialMetrics) return 0;
 
-            // Get price after 48 hours
+            // Get price after 24 hours
             const endTimestamp = new Date(timestamp);
-            endTimestamp.setHours(endTimestamp.getHours() + 48);
+            endTimestamp.setHours(endTimestamp.getHours() + 24);
             
             // For historical data, we might need to implement additional logic
             // to fetch prices at specific timestamps
