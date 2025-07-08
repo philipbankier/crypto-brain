@@ -1,4 +1,4 @@
-# Memecoin Monitor - Component Documentation
+# Crypto Brain - Component Documentation
 
 ## Core Services
 
