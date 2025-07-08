@@ -1,6 +1,6 @@
-# Memecoin Monitor
+# Crypto Brain v0
 
-A service that monitors Discord channels for tweets about potential memecoins, analyzes them, and tracks their performance.
+A service that monitors Discord channels for tweets about specific cryptocurrencies, analyzes them, and tracks their performance.
 
 ## Quick Start
 
